@@ -347,7 +347,9 @@ static int kirc_run(struct kirc_context *ctx)
 
             if (editor.state == EDITOR_STATE_SEND) {
                 char *msg = editor_last_entry(&editor);
-                network_command_handler(&network, msg, &output);
+                if (network_command_handler(&network, msg, &output) < 0) {
+                    break;
+                }
                 output_flush(&output);
             }
 

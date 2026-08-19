@@ -169,6 +169,7 @@ static void config_parse_mechanism(struct kirc_context *ctx, char *value)
 static int config_apply_env(struct kirc_context *ctx, const char *env_name, 
         char *dest, size_t dest_size)
 {
+    (void)ctx;
     char *env = getenv(env_name);
     if (env && *env) {
         return safecpy(dest, env, dest_size);
@@ -198,6 +199,13 @@ int config_init(struct kirc_context *ctx)
         sizeof(ctx->port));
 
     ctx->mechanism = SASL_NONE;
+    ctx->tls = 0;
+
+    char *env_tls = getenv("KIRC_TLS");
+    if (!env_tls) env_tls = getenv("KIRC_SSL");
+    if (env_tls && (*env_tls == '1' || *env_tls == 'y' || *env_tls == 'Y')) {
+        ctx->tls = 1;
+    }
 
     config_apply_env(ctx, "KIRC_SERVER", ctx->server, sizeof(ctx->server));
 
@@ -242,21 +250,29 @@ int config_init(struct kirc_context *ctx)
  *
  * Parses command-line options using getopt. Supports:
  *   -s server, -p port, -r realname, -u username, -k password,
- *   -c channels, -a auth_mechanism
+ *   -c channels, -a auth_mechanism, -e/-t enable TLS/SSL
  * The nickname is required as a positional argument.
  *
  * Return: 0 on success, -1 on error or invalid arguments
  */
 int config_parse_args(struct kirc_context *ctx, int argc, char *argv[])
 {
-    if (argc < 2) {
-        fprintf(stderr, "%s: no arguments\n", argv[0]);
+    if (argc < 2 || (argc == 2 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0))) {
+        fprintf(stderr, "Usage: %s [-s server] [-p port] [-e] [-c #channel] [-u user] [-r real] [-k pass] <nickname>\n", argv[0]);
+        fprintf(stderr, "  -s <server>   IRC server (default: irc.libera.chat)\n");
+        fprintf(stderr, "  -p <port>     Port (default: 6667 or 6697 with -e)\n");
+        fprintf(stderr, "  -e            Enable TLS/SSL encryption (BearSSL)\n");
+        fprintf(stderr, "  -c <channels> Initial channel(s) to join (e.g. #boredos)\n");
+        fprintf(stderr, "  -u <username> Username\n");
+        fprintf(stderr, "  -r <realname> Real name\n");
+        fprintf(stderr, "  -k <password> Server/NickServ password\n");
+        fprintf(stderr, "  <nickname>    Your IRC nickname (required)\n");
         return -1;
     }
 
     int opt;
 
-    while ((opt = getopt(argc, argv, "s:p:r:u:k:c:a:")) > 0) {
+    while ((opt = getopt(argc, argv, "s:p:r:u:k:c:a:et")) > 0) {
         switch (opt) {
         case 's':  /* server */
             safecpy(ctx->server, optarg, sizeof(ctx->server));
@@ -290,6 +306,11 @@ int config_parse_args(struct kirc_context *ctx, int argc, char *argv[])
             config_parse_mechanism(ctx, optarg);
             break;
 
+        case 'e':  /* TLS / SSL */
+        case 't':
+            ctx->tls = 1;
+            break;
+
         case ':':
             fprintf(stderr, "%s: missing -%c value\n", argv[0], opt);
             return -1;
@@ -310,6 +331,12 @@ int config_parse_args(struct kirc_context *ctx, int argc, char *argv[])
 
     size_t nickname_n = sizeof(ctx->nickname);
     safecpy(ctx->nickname, argv[optind], nickname_n);
+
+    if (ctx->tls && strcmp(ctx->port, KIRC_DEFAULT_PORT) == 0) {
+        safecpy(ctx->port, "6697", sizeof(ctx->port));
+    } else if (strcmp(ctx->port, "6697") == 0 || strcmp(ctx->port, "7000") == 0) {
+        ctx->tls = 1;
+    }
 
     return 0;
 }

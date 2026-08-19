@@ -1,48 +1,67 @@
-.POSIX:
-.SUFFIXES:
+# Copyright (c) 2026 Christiaan (chris@boreddev.nl)
+# kirc IRC Client Standalone Makefile for BoredOS
 
-include config.mk
+CC = x86_64-boredos-gcc
+AR = x86_64-boredos-ar
 
-CFLAGS += -std=c99 -pedantic -Wall -Wextra
-CFLAGS += -Wformat-security -Wwrite-strings
-CFLAGS += -Wno-unused-parameter
-CFLAGS += -g -Iinclude -Isrc
+DESTDIR ?= $(abspath build/dist)
 
-BIN = kirc
-SRC = src
-BUILD = build
+BEARSSL_DIR = ../bearssl
+BEARSSL_SRCS = $(shell find $(BEARSSL_DIR)/src -name "*.c" 2>/dev/null)
+BEARSSL_OBJS = $(patsubst $(BEARSSL_DIR)/src/%.c, obj/bearssl/%.o, $(BEARSSL_SRCS))
 
-# Discover all source files
-SRCS = $(wildcard $(SRC)/*.c)
+CFLAGS  = -Wall -Wextra -std=gnu11 -ffreestanding -O2 -fno-stack-protector \
+          -fno-stack-check -fno-lto -fno-pie -m64 -march=x86-64 -mno-red-zone \
+          -D_GNU_SOURCE -Iinclude -Isrc -I$(BEARSSL_DIR)/inc -I$(BEARSSL_DIR)/src
 
-# Create matching build/*.o paths
-OBJS = $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
+LDFLAGS = -static -no-pie -Wl,-Ttext=0x40000000 \
+          -Wl,--no-dynamic-linker -Wl,-z,text -Wl,-z,max-page-size=0x1000
 
-all: $(BIN)
+KIRC_SRCS = $(wildcard src/*.c)
+KIRC_OBJS = $(patsubst src/%.c, obj/%.o, $(KIRC_SRCS))
 
-$(BIN): $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS)
+APPS = kirc.elf
 
-$(BUILD):
-	mkdir -p $@
+all: bootstrap-bearssl $(APPS)
 
-# Pattern rule: build/xyz.o ← src/xyz.c
-$(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+.PHONY: bootstrap-bearssl apps bup install clean
+
+bootstrap-bearssl:
+	@if [ ! -d "$(BEARSSL_DIR)" ]; then \
+		echo "[STANDALONE] BearSSL not found at $(BEARSSL_DIR). Cloning mirror..."; \
+		git clone https://www.bearssl.org/git/BearSSL $(BEARSSL_DIR); \
+	fi
+
+obj/bearssl/%.o: $(BEARSSL_DIR)/src/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+obj/libbearssl.a: $(BEARSSL_OBJS)
+	@mkdir -p obj
+	$(AR) rcs $@ $(BEARSSL_OBJS)
+
+obj/%.o: src/%.c
+	@mkdir -p obj
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kirc.elf: $(KIRC_OBJS) obj/libbearssl.a
+	$(CC) $(KIRC_OBJS) obj/libbearssl.a $(LDFLAGS) -o $@
+
+install: all
+	mkdir -p $(DESTDIR)/bin
+	cp $(APPS) $(DESTDIR)/bin/
+
+bup: all
+	rm -rf build/package
+	mkdir -p build/package/bin
+	cp $(APPS) build/package/bin/
+	cp MANIFEST.toml build/package/
+	x86_64-boredos-strip --strip-unneeded build/package/bin/*.elf 2>/dev/null || true
+	mkdir -p build
+	tar -cf build/kirc.tar -C build/package MANIFEST.toml bin
+	lz4 -f build/kirc.tar build/kirc.bup
+	rm -f build/kirc.tar
+	rm -rf build/package
 
 clean:
-	rm -f $(BIN) $(BUILD)/*
-
-install:
-	mkdir -p $(DESTDIR)$(BINDIR)
-	cp -f $(BIN) $(DESTDIR)$(BINDIR)
-	chmod 755 $(DESTDIR)$(BINDIR)/$(BIN)
-	mkdir -p $(DESTDIR)$(MANDIR)/man1
-	cp -f $(BIN).1 $(DESTDIR)$(MANDIR)/man1
-	chmod 644 $(DESTDIR)$(MANDIR)/man1/$(BIN).1
-
-uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/$(BIN)
-	rm -f $(DESTDIR)$(MANDIR)/man1/$(BIN).1
-
-.PHONY: all clean install uninstall
+	rm -rf obj build $(APPS)

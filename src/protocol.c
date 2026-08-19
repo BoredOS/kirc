@@ -21,7 +21,7 @@ static const char *protocol_get_time(void)
     static char timestamp[KIRC_TIMESTAMP_SIZE];
     time_t current;
     time(&current);
-    struct tm *info = localtime(&current);
+    struct tm *info = gmtime(&current);
     strftime(timestamp, KIRC_TIMESTAMP_SIZE,
         KIRC_TIMESTAMP_FORMAT, info);
     return timestamp;
@@ -316,6 +316,8 @@ void protocol_join(struct network *network, struct event *event, struct output *
     (void)network;
 
     if (strcmp(event->nickname, event->ctx->nickname) == 0) {
+        size_t siz = sizeof(event->ctx->target);
+        safecpy(event->ctx->target, event->channel, siz);
         output_append(output, "\r" CLEAR_LINE
             DIM "kirc: you've joined %s" RESET "\r\n",
             event->channel);

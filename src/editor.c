@@ -70,6 +70,7 @@ static int editor_enter(struct editor *editor)
 
     strncpy(editor->history[editor->head],
         editor->scratch, siz);
+    editor->history[editor->head][siz] = '\0';
 
     editor->head = (editor->head + 1) % KIRC_HISTORY_SIZE;
     if (editor->count < KIRC_HISTORY_SIZE) {
@@ -377,6 +378,7 @@ static void editor_insert_bytes(struct editor *editor, const char *buf, int n)
  */
 static void editor_clear(struct editor *editor)
 {
+    (void)editor;
     printf("\r" CLEAR_LINE);
 }
 
@@ -520,7 +522,8 @@ int editor_process_key(struct editor *editor)
         editor_backspace(editor);
         break;
 
-    case CR:  /* CTRL-M or ENTER */
+    case LF:  /* Line Feed / ENTER */
+    case CR:  /* Carriage Return / ENTER */
         if (editor_enter(editor) > 0) {
             editor->state = EDITOR_STATE_SEND;
         }
@@ -536,7 +539,6 @@ int editor_process_key(struct editor *editor)
     case ENQ:  /* CTRL-E */
     case ACK:  /* CTRL-F */
     case BEL:  /* CTRL-G */
-    case LF:  /* CTRL-J */
     case VT:  /* CTRL-K */
     case FF:  /* CTRL-L */
     case SO:  /* CTRL-N */

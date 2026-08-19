@@ -8,6 +8,10 @@
 #ifndef __KIRC_H
 #define __KIRC_H
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 700
 #endif
@@ -18,6 +22,9 @@
 #include <limits.h>
 #include <locale.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <poll.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -29,6 +36,8 @@
 #include <unistd.h>
 #include <wchar.h>
 #include <wctype.h>
+
+int wcwidth(wchar_t __wc);
 
 #ifndef NAME_MAX
 #define NAME_MAX                 255
@@ -80,6 +89,7 @@ struct kirc_context {
     char target[KIRC_CHANNEL_LIMIT];
     char auth[MESSAGE_MAX_LEN];
     enum sasl_mechanism mechanism;
+    int tls;
 };
 
 #endif  // __KIRC_H

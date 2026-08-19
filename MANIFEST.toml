@@ -1,0 +1,8 @@
+name = "kirc"
+version = "1.2.2"
+description = "KISS IRC Client for BoredOS with BearSSL"
+author = "Michael Czigler"
+license = "MIT"
+
+[install]
+bin = "/bin"

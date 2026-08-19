@@ -78,7 +78,7 @@ void ctcp_handle_time(struct network *network, struct event *event, struct outpu
         char tbuf[128];
         time_t now;
         time(&now);
-        struct tm *info = localtime(&now);
+        struct tm *info = gmtime(&now);
         strftime(tbuf, sizeof(tbuf), "%c", info);
         network_send(network,
             "NOTICE %s :\001TIME %s\001\r\n",

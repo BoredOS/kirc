@@ -60,6 +60,10 @@ int network_send(struct network *network, const char *fmt, ...)
 int network_receive(struct network *network)
 {
     size_t buffer_n = sizeof(network->buffer) - 1;
+    if ((int)buffer_n <= network->len) {
+        return 0;
+    }
+
     ssize_t nread = transport_receive(
         network->transport,
         network->buffer + network->len,
@@ -74,13 +78,13 @@ int network_receive(struct network *network)
     }
 
     if (nread == 0) {
-        return -1;
+        return 0;
     }
 
     network->len += (int)nread;
     network->buffer[network->len] = '\0';
 
-    return nread;
+    return (int)nread;
 }
 
 /**
@@ -301,6 +305,45 @@ int network_command_handler(struct network *network, char *msg, struct output *o
     switch (msg[0]) {
     case '/':  /* system command message */
         switch (msg[1]) {
+        case 'j':  /* /join or /j */
+            if (strncmp(msg + 1, "join ", 5) == 0) {
+                network_send(network, "JOIN %s\r\n", msg + 6);
+            } else if (strncmp(msg + 1, "j ", 2) == 0) {
+                network_send(network, "JOIN %s\r\n", msg + 3);
+            } else {
+                network_send(network, "%s\r\n", msg + 1);
+            }
+            break;
+
+        case 'p':  /* /part or /p */
+            if (strncmp(msg + 1, "part ", 5) == 0) {
+                network_send(network, "PART %s\r\n", msg + 6);
+            } else if (strcmp(msg + 1, "part") == 0 || strcmp(msg + 1, "p") == 0) {
+                if (network->ctx->target[0] != '\0') {
+                    network_send(network, "PART %s\r\n", network->ctx->target);
+                }
+            } else if (strncmp(msg + 1, "p ", 2) == 0) {
+                network_send(network, "PART %s\r\n", msg + 3);
+            } else {
+                network_send(network, "%s\r\n", msg + 1);
+            }
+            break;
+
+        case 'q':  /* /query or /quit or /q */
+            if (strncmp(msg + 1, "query ", 6) == 0) {
+                safecpy(network->ctx->target, msg + 7, sizeof(network->ctx->target));
+            } else if (strncmp(msg + 1, "quit", 4) == 0 || strcmp(msg + 1, "q") == 0) {
+                if (strncmp(msg + 1, "quit ", 5) == 0) {
+                    network_send(network, "QUIT :%s\r\n", msg + 6);
+                } else {
+                    network_send(network, "QUIT :Client Quit\r\n");
+                }
+                return -1;
+            } else {
+                network_send(network, "%s\r\n", msg + 1);
+            }
+            break;
+
         case 's':  /* set target (channel or nickname) */
             if (strncmp(msg + 1, "set ", 4) == 0) {
                 size_t siz = sizeof(network->ctx->target);
@@ -318,9 +361,45 @@ int network_command_handler(struct network *network, char *msg, struct output *o
             }
             break;
 
-        case 'm':  /* send CTCP ACTION to target */
+        case 'm':  /* /me or /msg or /m */
             if (strncmp(msg + 1, "me ", 3) == 0) {
                 network_send_ctcp_action(network, msg + 4, output);
+            } else if (strncmp(msg + 1, "msg ", 4) == 0) {
+                network_send_private_msg(network, msg + 5, output);
+            } else if (strncmp(msg + 1, "m ", 2) == 0) {
+                network_send_private_msg(network, msg + 3, output);
+            } else {
+                network_send(network, "%s\r\n", msg + 1);
+            }
+            break;
+
+        case 'n':  /* /names or /nick */
+            if (strcmp(msg + 1, "names") == 0) {
+                if (network->ctx->target[0] != '\0') {
+                    network_send(network, "NAMES %s\r\n", network->ctx->target);
+                } else {
+                    network_send(network, "NAMES\r\n");
+                }
+            } else if (strncmp(msg + 1, "names ", 6) == 0) {
+                network_send(network, "NAMES %s\r\n", msg + 7);
+            } else if (strncmp(msg + 1, "nick ", 5) == 0) {
+                network_send(network, "NICK %s\r\n", msg + 6);
+            } else {
+                network_send(network, "%s\r\n", msg + 1);
+            }
+            break;
+
+        case 'w':  /* /who or /whois */
+            if (strcmp(msg + 1, "who") == 0) {
+                if (network->ctx->target[0] != '\0') {
+                    network_send(network, "WHO %s\r\n", network->ctx->target);
+                } else {
+                    network_send(network, "WHO\r\n");
+                }
+            } else if (strncmp(msg + 1, "who ", 4) == 0) {
+                network_send(network, "WHO %s\r\n", msg + 5);
+            } else if (strncmp(msg + 1, "whois ", 6) == 0) {
+                network_send(network, "WHOIS %s\r\n", msg + 7);
             } else {
                 network_send(network, "%s\r\n", msg + 1);
             }

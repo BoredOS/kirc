@@ -9,10 +9,14 @@
 #define __KIRC_TRANSPORT_H
 
 #include "kirc.h"
+#include <bearssl.h>
 
 struct transport {
     struct kirc_context *ctx;
     int fd;
+    int tls_active;
+    br_ssl_client_context sc;
+    unsigned char iobuf[BR_SSL_BUFSIZE_BIDI];
 };
 
 ssize_t transport_send(struct transport *transport,
