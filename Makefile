@@ -10,12 +10,11 @@ BEARSSL_DIR = ../bearssl
 BEARSSL_SRCS = $(shell find $(BEARSSL_DIR)/src -name "*.c" 2>/dev/null)
 BEARSSL_OBJS = $(patsubst $(BEARSSL_DIR)/src/%.c, obj/bearssl/%.o, $(BEARSSL_SRCS))
 
-CFLAGS  = -Wall -Wextra -std=gnu11 -ffreestanding -O2 -fno-stack-protector \
-          -fno-stack-check -fno-lto -fno-pie -m64 -march=x86-64 -mno-red-zone \
+CFLAGS  = -Wall -Wextra -std=gnu11 -O2 -fno-stack-protector \
+          -fno-stack-check -m64 -march=x86-64 \
           -D_GNU_SOURCE -Iinclude -Isrc -I$(BEARSSL_DIR)/inc -I$(BEARSSL_DIR)/src
 
-LDFLAGS = -static -no-pie -Wl,-Ttext=0x40000000 \
-          -Wl,--no-dynamic-linker -Wl,-z,text -Wl,-z,max-page-size=0x1000
+LDFLAGS = -Wl,-z,max-page-size=0x1000 -Wl,-dynamic-linker,/usr/lib/ld.so -Wl,-rpath,/usr/lib:/lib -lm
 
 KIRC_SRCS = $(wildcard src/*.c)
 KIRC_OBJS = $(patsubst src/%.c, obj/%.o, $(KIRC_SRCS))
