@@ -1,6 +1,7 @@
-kirc
+obj/
+build/
 *.a
 *.o
-kirc.elf
-.gitignore
-build/kirc.bup
+*.elf
+.DS_Store
+/kirc

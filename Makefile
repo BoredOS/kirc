@@ -19,7 +19,7 @@ LDFLAGS = -Wl,-z,max-page-size=0x1000 -Wl,-dynamic-linker,/usr/lib/ld.so -Wl,-rp
 KIRC_SRCS = $(wildcard src/*.c)
 KIRC_OBJS = $(patsubst src/%.c, obj/%.o, $(KIRC_SRCS))
 
-APPS = kirc.elf
+APPS = kirc
 
 all: bootstrap-bearssl $(APPS)
 
@@ -43,7 +43,7 @@ obj/%.o: src/%.c
 	@mkdir -p obj
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kirc.elf: $(KIRC_OBJS) obj/libbearssl.a
+kirc: $(KIRC_OBJS) obj/libbearssl.a
 	$(CC) $(KIRC_OBJS) obj/libbearssl.a $(LDFLAGS) -o $@
 
 install: all
@@ -55,7 +55,7 @@ bup: all
 	mkdir -p build/package/bin
 	cp $(APPS) build/package/bin/
 	cp MANIFEST.toml build/package/
-	x86_64-boredos-strip --strip-unneeded build/package/bin/*.elf 2>/dev/null || true
+	x86_64-boredos-strip --strip-unneeded build/package/bin/* 2>/dev/null || true
 	mkdir -p build
 	tar -cf build/kirc.tar -C build/package MANIFEST.toml bin
 	lz4 -f build/kirc.tar build/kirc.bup
